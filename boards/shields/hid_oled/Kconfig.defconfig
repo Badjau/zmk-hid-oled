@@ -26,7 +26,7 @@ config LV_Z_MEM_POOL_SIZE
     default 4096 if ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
 
 config ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
-    imply HID_OLED_WIDGET_STATUS
+    select HID_OLED_WIDGET_STATUS
 
 config HID_OLED_GEM_WPM_FIXED_RANGE
     bool "Enable fixed range for WPM gauge/chart"
