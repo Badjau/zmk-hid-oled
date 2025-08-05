@@ -25,15 +25,8 @@ endchoice
 config LV_Z_MEM_POOL_SIZE
     default 4096 if ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
 
-config NICE_VIEW_WIDGET_STATUS
-    select LV_USE_LABEL
-    select LV_USE_IMG
-    select LV_USE_CANVAS
-    select LV_USE_ANIMIMG
-    select LV_USE_ANIMATION
-
 config ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
-    select NICE_VIEW_WIDGET_STATUS
+    imply NICE_VIEW_WIDGET_STATUS
 
 config HID_OLED_GEM_WPM_FIXED_RANGE
     bool "Enable fixed range for WPM gauge/chart"
@@ -54,6 +47,13 @@ config HID_OLED_GEM_ANIMATION_MS
 config HID_OLED_WIDGET_INVERTED
     bool "Invert display colors"
 
+config NICE_VIEW_WIDGET_STATUS
+    select LV_USE_LABEL
+    select LV_USE_IMG
+    select LV_USE_CANVAS
+    select LV_USE_ANIMIMG
+    select LV_USE_ANIMATION  
+    
 if !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
 
 config NICE_VIEW_WIDGET_STATUS
