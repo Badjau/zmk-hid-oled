@@ -1,6 +1,6 @@
 #include <zephyr/kernel.h>
 #include "output.h"
- 
+
 
 LV_IMG_DECLARE(bt_no_signal);
 LV_IMG_DECLARE(bt_unbonded);
