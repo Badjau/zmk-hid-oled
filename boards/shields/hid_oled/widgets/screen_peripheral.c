@@ -33,7 +33,7 @@ static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_st
     draw_battery_status(canvas, state);
 
     // Rotate for horizontal display
-    rotate_canvas(canvas, cbuf);
+//    rotate_canvas(canvas, cbuf);
 }
 
 /**

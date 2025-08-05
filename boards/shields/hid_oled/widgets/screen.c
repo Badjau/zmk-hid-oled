@@ -3,6 +3,10 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
+#include <zmk/battery.h>
+#include <zmk/ble.h>
+#include <zmk/display.h>
+#include <zmk/endpoints.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/ble_active_profile_changed.h>
@@ -10,10 +14,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/events/wpm_state_changed.h>
-#include <zmk/battery.h>
-#include <zmk/ble.h>
-#include <zmk/display.h>
-#include <zmk/endpoints.h>
 #include <zmk/keymap.h>
 #include <zmk/usb.h>
 #include <zmk/wpm.h>
@@ -25,45 +25,51 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "screen.h"
 #include "wpm.h"
 
-// Define canvas dimensions for a 160x68 landscape screen
-#define CANVAS_HEIGHT 68
-#define LEFT_CANVAS_WIDTH 54
-#define CENTER_CANVAS_WIDTH 52
-#define RIGHT_CANVAS_WIDTH 54
-
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /**
- * Draw buffers
+ * luna
  **/
 
-// Renamed from draw_top
-static void draw_left_panel(lv_obj_t *widget, const struct status_state *state) {
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_WPM)
+#include "luna.h"
+static struct zmk_widget_luna luna_widget;
+#endif
+
+/**
+ * modifiers
+ **/
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_MODIFIERS_INDICATORS)
+#include "modifiers.h"                               // Incluir el archivo de cabecera de modifiers
+static struct zmk_widget_modifiers modifiers_widget; // Declarar el widget de modifiers
+#endif
+
+/**
+ * hid indicators
+ **/
+
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_HID_INDICATORS)
+#include "hid_indicators.h"
+static struct zmk_widget_hid_indicators hid_indicators_widget;
+#endif
+
+/**
+ * Draw canvas
+ **/
+
+static void draw_canvas(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
     lv_obj_t *canvas = lv_obj_get_child(widget, 0);
-    fill_background(canvas);
 
     // Draw widgets
+    draw_background(canvas);
     draw_output_status(canvas, state);
     draw_battery_status(canvas, state);
-}
-
-// Renamed from draw_middle
-static void draw_center_panel(lv_obj_t *widget, const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 1);
-    fill_background(canvas);
-
-    // Draw widgets
     draw_wpm_status(canvas, state);
-}
-
-// Renamed from draw_bottom
-static void draw_right_panel(lv_obj_t *widget, const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 2);
-    fill_background(canvas);
-
-    // Draw widgets
     draw_profile_status(canvas, state);
     draw_layer_status(canvas, state);
+
+    // Rotate for horizontal display
+//    rotate_canvas(canvas, cbuf);
 }
 
 /**
@@ -75,9 +81,10 @@ static void set_battery_status(struct zmk_widget_screen *widget,
 #if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
     widget->state.charging = state.usb_present;
 #endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
+
     widget->state.battery = state.level;
 
-    draw_left_panel(widget, &widget->state); // Changed from draw_top
+    draw_canvas(widget->obj, widget->cbuf, &widget->state);
 }
 
 static void battery_status_update_cb(struct battery_status_state state) {
@@ -112,7 +119,7 @@ static void set_layer_status(struct zmk_widget_screen *widget, struct layer_stat
     widget->state.layer_index = state.index;
     widget->state.layer_label = state.label;
 
-    draw_right_panel(widget, &widget->state); // Changed from draw_bottom
+    draw_canvas(widget->obj, widget->cbuf, &widget->state);
 }
 
 static void layer_status_update_cb(struct layer_status_state state) {
@@ -141,8 +148,7 @@ static void set_output_status(struct zmk_widget_screen *widget,
     widget->state.active_profile_connected = state->active_profile_connected;
     widget->state.active_profile_bonded = state->active_profile_bonded;
 
-    draw_left_panel(widget, &widget->state);  // Changed from draw_top
-    draw_right_panel(widget, &widget->state); // Changed from draw_bottom
+    draw_canvas(widget->obj, widget->cbuf, &widget->state);
 }
 
 static void output_status_update_cb(struct output_status_state state) {
@@ -180,7 +186,7 @@ static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_s
     }
     widget->state.wpm[9] = state.wpm;
 
-    draw_center_panel(widget, &widget->state); // Changed from draw_middle
+    draw_canvas(widget->obj, widget->cbuf, &widget->state);
 }
 
 static void wpm_status_update_cb(struct wpm_status_state state) {
@@ -202,29 +208,30 @@ ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
 int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
-    // Set size for landscape orientation (e.g., 160x68)
-    lv_obj_set_size(widget->obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_set_size(widget->obj, CANVAS_HEIGHT, CANVAS_WIDTH);
 
-    // Create left canvas
-    lv_obj_t *left_canvas = lv_canvas_create(widget->obj);
-    lv_obj_align(left_canvas, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_canvas_set_buffer(left_canvas, widget->cbuf, LEFT_CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
-
-    // Create center canvas
-    lv_obj_t *center_canvas = lv_canvas_create(widget->obj);
-    lv_obj_align(center_canvas, LV_ALIGN_LEFT_MID, LEFT_CANVAS_WIDTH, 0);
-    lv_canvas_set_buffer(center_canvas, widget->cbuf2, CENTER_CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
-
-    // Create right canvas
-    lv_obj_t *right_canvas = lv_canvas_create(widget->obj);
-    lv_obj_align(right_canvas, LV_ALIGN_LEFT_MID, LEFT_CANVAS_WIDTH + CENTER_CANVAS_WIDTH, 0);
-    lv_canvas_set_buffer(right_canvas, widget->cbuf3, RIGHT_CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_t *canvas = lv_canvas_create(widget->obj);
+    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_canvas_set_buffer(canvas, widget->cbuf, CANVAS_HEIGHT, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
 
     sys_slist_append(&widgets, &widget->node);
     widget_battery_status_init();
     widget_layer_status_init();
     widget_output_status_init();
     widget_wpm_status_init();
+
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_WPM)
+    zmk_widget_luna_init(&luna_widget, canvas);
+    lv_obj_align(zmk_widget_luna_obj(&luna_widget), LV_ALIGN_TOP_LEFT, 36, 0);
+#endif
+
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_HID_INDICATORS)
+    zmk_widget_hid_indicators_init(&hid_indicators_widget, canvas);
+#endif
+
+#if IS_ENABLED(CONFIG_NICE_OLED_WIDGET_MODIFIERS_INDICATORS)
+    zmk_widget_modifiers_init(&modifiers_widget, canvas); // Inicializar el widget de modifiers
+#endif
 
     return 0;
 }
