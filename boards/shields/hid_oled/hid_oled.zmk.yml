@@ -7,5 +7,3 @@ requires:
   - i2c_oled
 features:
   - display
-siblings:
-  - hid_oled

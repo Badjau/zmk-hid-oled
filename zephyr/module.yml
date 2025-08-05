@@ -1,4 +1,7 @@
-name: "hid_oled"
+name: zmk-hid-oled
 build:
+  cmake: .
+  kconfig: Kconfig
   settings:
     board_root: .
+    dts_root: .
