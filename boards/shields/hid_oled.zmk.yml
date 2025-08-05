@@ -1,0 +1,11 @@
+file_format: "1"
+id: hid_oled
+name: hid_oled
+type: shield
+url: https://github.com/badjau/zmk-hid-oled
+requires:
+  - i2c_oled
+features:
+  - display
+siblings:
+  - hid_oled
